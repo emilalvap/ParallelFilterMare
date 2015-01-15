@@ -21,10 +21,10 @@
 
 #define NPIXELX 1000
 #define NPIXELY 1000
-#define GRAX 1
-#define GRAY 1
-#define ARRAYX (int)(ceil(NPIXELX/(double)GRAX))
-#define ARRAYY (int)(ceil(NPIXELY/(double)GRAY))
+#define GRAX 21 // Sets the size of the x axis square passed to the task
+#define GRAY 1 // Sets the size of the y axis square passed to the task
+#define ARRAYX (int)(ceil(NPIXELX/(double)GRAX)) // Number of x elements on the task array
+#define ARRAYY (int)(ceil(NPIXELY/(double)GRAY)) // Number of y elements on the task array
 #include <mare/mare.h>
 #include <stdio.h>   
 
@@ -37,7 +37,7 @@ int main(int argc, char **argv){
     
     int px=NPIXELX;
     int py=NPIXELY;
-    int i=0,j=0;
+    int i,j;
     double sum, promedio;
     
     double im[NPIXELX][NPIXELY];
@@ -64,9 +64,8 @@ int main(int argc, char **argv){
             im[i][j] += 0.25 * sqrt((im[i-1][j]+im[i][j-1]));
     */
     i=0;
-    j=0; 
-
-    task_im[0][0] = mare::create_task([&im,&i,&j]{ 
+    j=0;
+    task_im[i][j] = mare::create_task([&im,i,j]{ 
 	int shiftx = GRAX*i+1;
 	int shifty = GRAY*j+1;
 	int w,z;
@@ -74,10 +73,12 @@ int main(int argc, char **argv){
 	  for (z = 0;(z<GRAY)&&((z+shifty)<NPIXELY-1);z++)
 	    im[w+shiftx][z+shifty] += 0.25 * sqrt((im[w+shiftx-1][z+shifty]+im[w+shiftx][z+shifty-1]));	
       });
+
     mare::launch(g,task_im[0][0]);
-    
+    i=0;
+    j=0;
     for(i=1; i < ARRAYX; i++){ 
-      task_im[i][j] = mare::create_task([&im,&i,&j]{ 
+      task_im[i][j] = mare::create_task([&im,i,j]{ 
 	int shiftx = GRAX*i+1;
 	int shifty = GRAY*j+1;
 	int w,z;
@@ -85,15 +86,14 @@ int main(int argc, char **argv){
 	  for ( z = 0;(z<GRAY)&&((z+shifty)<NPIXELY-1);z++)
 	    im[w+shiftx][z+shifty] += 0.25 * sqrt((im[w+shiftx-1][z+shifty]+im[w+shiftx][z+shifty-1]));
       });
+
       mare::after(task_im[i-1][0],task_im[i][0]);
       mare::launch(g,task_im[i][0]);
     }
-    
     i=0;
     j=0;
-
     for(j=1; j < ARRAYY; j++){
-      task_im[i][j] = mare::create_task([&im,&i,&j]{ 
+      task_im[i][j] = mare::create_task([&im,i,j]{ 
 	int shiftx = GRAX*i+1;
 	int shifty = GRAY*j+1;
 	int w,z;
@@ -101,12 +101,13 @@ int main(int argc, char **argv){
 	  for ( z = 0;(z<GRAY)&&((z+shifty)<NPIXELY-1);z++)
 	    im[w+shiftx][z+shifty] += 0.25 * sqrt((im[w+shiftx-1][z+shifty]+im[w+shiftx][z+shifty-1]));
       });
+
       mare::after(task_im[0][j-1],task_im[0][j]);
       mare::launch(g,task_im[0][j]);
     }
     for( i=1; i < ARRAYX;i++){
       for(j=1; j < ARRAYY; j++){
-	task_im[i][j] = mare::create_task([&im,&i,&j]{ 
+	task_im[i][j] = mare::create_task([&im,i,j]{ 
 	    int shiftx = GRAX*i+1;
 	    int shifty = GRAY*j+1;
 	    int w,z;
@@ -114,14 +115,17 @@ int main(int argc, char **argv){
 	      for ( z = 0;(z<GRAY)&&((z+shifty)<NPIXELY-1);z++)
 		im[w+shiftx][z+shifty] += 0.25 * sqrt((im[w+shiftx-1][z+shifty]+im[w+shiftx][z+shifty-1]));
 	  });
+
 	mare::after(task_im[i-1][j],task_im[i][j]);
 	mare::after(task_im[i][j-1],task_im[i][j]);
 	mare::launch(g,task_im[i][j]);
+
       }
     }
 
     
     mare::wait_for(g);
+
     // Promedio tras el filtro (test de salida)
     sum = 0.0;
     for(i=0; i < px; i++)
